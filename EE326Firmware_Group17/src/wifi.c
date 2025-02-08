@@ -9,7 +9,7 @@
 
 void wifi_usart_handler(void)
 {
-	
+	// change made here (:
 }
 
 void process_incoming_byte_wifi(uint8_t in_byte)
