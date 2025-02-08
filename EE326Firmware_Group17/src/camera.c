@@ -2,12 +2,15 @@
  * camera.c
  *
  * Created: 2/7/2025 11:27:06 AM
- *  Author: andyh
+ *  Author: ritvik karra
  */ 
 #include <asf.h>
 #include "camera.h"
 #include "conf_board.h"
 #include "conf_clock.h"
+
+/* Vsync signal information (true if it's triggered and false otherwise) */
+static volatile uint32_t g_ul_vsync_flag = false;
 
 void vsync_handler(uint32_t ul_id, uint32_t ul_mask)
 {
@@ -100,7 +103,7 @@ void configure_camera(void)
     ov_configure(BOARD_TWI, JPEG_320x240);
 }
 
-void start_capture(void)
+uint8_t start_capture(void)
 {
 
     // WARNING: function uses OV7740 pins native to different board. Change pin definitions before using. 
@@ -147,4 +150,16 @@ void start_capture(void)
 
 	/* Reset vsync flag*/
 	g_ul_vsync_flag = false;
+
+    // if length of image is non-zero, return 1 for success 
+    if (find_image_len()) 
+        return 1; 
+
+    // no image captured. return 0 for error. 
+    return 0; 
+}
+
+uint8_t find_image_len(void)
+{
+    
 }
