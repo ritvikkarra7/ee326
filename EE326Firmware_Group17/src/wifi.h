@@ -5,7 +5,7 @@
  *  Author: andyh
  */ 
 #include <asf.h>
-
+#include "conf_board.h"
 
 #ifndef WIFI_H_
 #define WIFI_H_
@@ -20,17 +20,20 @@ struct status_block_t {
 	uint32_t ul_cmd_list[NB_STATUS_CMD];
 };
 
-/* SPI Status. */
-static struct status_block_t gs_spi_status;
+// SPI Status.
+struct status_block_t gs_spi_status;
 
-/* Pointer to transfer buffer. */
-static uint8_t *gs_puc_transfer_buffer;
+// Flag for ESP32 provisioning mode.
+volatile bool g_provision_flag;
 
-/* Transfer buffer index. */
-static uint32_t gs_ul_transfer_index;
+// Pointer to transfer buffer.
+uint8_t *g_puc_transfer_buffer;
 
-/* Transfer buffer length. */
-static uint32_t gs_ul_transfer_length;
+// Transfer buffer index.
+uint32_t g_ul_transfer_index;
+
+// Transfer buffer length.
+uint32_t g_ul_transfer_length;
 
 
 // Handler for incoming data from the WiFi. Should call process incoming byte wifi when a new byte arrives.

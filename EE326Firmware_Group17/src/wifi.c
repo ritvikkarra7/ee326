@@ -6,30 +6,52 @@
  */ 
 #include <asf.h>
 #include "wifi.h"
+#include "conf_board.h"
+
+uint32_t g_ul_transfer_index = 0;
+uint32_t g_ul_transfer_length = 0;
+volatile bool g_provision_flag = false;
+
+static uint32_t gs_ul_read_buffer = 0;
 
 void wifi_usart_handler(void)
 {
-	// change made here (:
+	uint32_t ul_status;
+
+	/* Read USART Status. */
+	ul_status = usart_get_status(BOARD_USART);
+
+	/* Transfer without PDC. */
+	if (ul_status & US_CSR_RXRDY)
+		usart_getchar(BOARD_USART, (uint32_t *)&gs_ul_read_buffer);
+		usart_write(BOARD_USART, gs_ul_read_buffer);
 }
 
 void process_incoming_byte_wifi(uint8_t in_byte)
 {
-	
+	// put the byte in the next spot of the buffer
+	g_puc_transfer_buffer[g_ul_transfer_index++] = in_byte;
 }
 
 void wifi_command_response_handler(uint32_t ul_id, uint32_t ul_mask)
 {
-	
+	unused(ul_id);
+	unused(ul_mask);
+
+	process_data_wifi();
 }
 
 void process_data_wifi(void)
 {
-	
+	usart_write_line()	
 }
 
 void wifi_provision_handler(uint32_t ul_id, uint32_t ul_mask)
 {
-	
+	unused(ul_id);
+	unused(ul_mask);
+
+	g_provision_flag = true;
 }
 
 void wifi_spi_handler(void)
@@ -39,7 +61,32 @@ void wifi_spi_handler(void)
 
 void configure_usart_wifi(void)
 {
-	
+	const sam_usart_opt_t usart_console_settings = {
+		BOARD_USART_BAUDRATE,
+		US_MR_CHRL_8_BIT,
+		US_MR_PAR_NO,
+		US_MR_NBSTOP_1_BIT,
+		US_MR_CHMODE_NORMAL,
+		/* This field is only used in IrDA mode. */
+		0
+	};
+
+	/* Enable the peripheral clock in the PMC. */
+	sysclk_enable_peripheral_clock(BOARD_ID_USART);
+
+	/* Configure USART in serial mode. */
+	usart_init_rs232(BOARD_USART, &usart_console_settings,
+	sysclk_get_peripheral_hz());
+
+	/* Disable all the interrupts. */
+	usart_disable_interrupt(BOARD_USART, ALL_INTERRUPT_MASK);
+
+	/* Enable the receiver and transmitter. */
+	usart_enable_tx(BOARD_USART);
+	usart_enable_rx(BOARD_USART);
+
+	/* Configure and enable interrupt of USART. */
+	NVIC_EnableIRQ(USART_IRQn);
 }
 
 void configure_wifi_comm_pin(void)
@@ -92,10 +139,10 @@ void spi_peripheral_initialize(void)
 
 void prepare_spi_transfer(void)
 {
-	gs_puc_transfer_buffer = p_buf;
-	gs_ul_transfer_length = size;
-	gs_ul_transfer_index = 0;
-	spi_write(SPI_SLAVE_BASE, gs_puc_transfer_buffer[gs_ul_transfer_index], 0, 0);
+	g_puc_transfer_buffer = p_buf;
+	g_ul_transfer_length = size;
+	g_ul_transfer_index = 0;
+	spi_write(SPI_SLAVE_BASE, g_puc_transfer_buffer[g_ul_transfer_index], 0, 0);
 }
 
 void write_wifi_command(char* comm, uint8_t cnt)
