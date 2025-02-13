@@ -47,7 +47,7 @@ void configure_camera(void);
 uint8_t start_capture(void);
 
 // Finds image length based on JPEG protocol. Returns 1 on success
-//(i.e. able to find �end of image� (EOI) and �start of image� (SOI) markers, with SOI preceding
+//(i.e. able to find end of image (EOI) and start of image (SOI) markers, with SOI preceding
 // EOI), 0 on error.
 uint8_t find_image_len(void);
 

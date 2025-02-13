@@ -12,6 +12,12 @@
 /* Vsync signal information (true if it's triggered and false otherwise) */
 static volatile uint32_t g_ul_vsync_flag = false;
 
+/* Rows size of capturing picture */
+uint16_t g_us_cap_rows = IMAGE_HEIGHT;
+
+/* Length of image */
+uint8_t g_uc_image_len = 0; 
+
 void vsync_handler(uint32_t ul_id, uint32_t ul_mask)
 {
 	unused(ul_id);
