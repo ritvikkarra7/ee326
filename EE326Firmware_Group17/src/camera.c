@@ -9,8 +9,17 @@
 #include "conf_board.h"
 #include "conf_clock.h"
 
+#define DEFAULT_MODE_COLORED
+
+#ifndef PIO_PCMR_DSIZE_WORD
+#  define PIO_PCMR_DSIZE_WORD PIO_PCMR_DSIZE(2)
+#endif
+
 /* Vsync signal information (true if it's triggered and false otherwise) */
 static volatile uint32_t g_ul_vsync_flag = false;
+
+/* Pointer to the image data destination buffer */
+uint8_t *g_p_uc_cap_dest_buf;
 
 /* Rows size of capturing picture */
 uint16_t g_us_cap_rows = IMAGE_HEIGHT;
@@ -21,7 +30,8 @@ uint8_t g_uc_image_len = 0;
 /* TWI clock frequency in Hz (400KHz) */
 #define TWI_CLK     (400000UL)
 
-void vsync_handler(uint32_t ul_id, uint32_t ul_mask)
+// Handler for rising-edge of VSYNC signal. Should set a flag indicating a rising edge of VSYNC.
+static void vsync_handler(uint32_t ul_id, uint32_t ul_mask)
 {
 	unused(ul_id);
 	unused(ul_mask);
@@ -29,7 +39,8 @@ void vsync_handler(uint32_t ul_id, uint32_t ul_mask)
 	g_ul_vsync_flag = true;
 }
 
-void init_vsync_interrupts(void)
+// Configuration of VSYNC interrupt.
+static void init_vsync_interrupts(void)
 {
 	/* Initialize PIO interrupt handler, see PIO definition in conf_board.h
 	**/
@@ -42,26 +53,10 @@ void init_vsync_interrupts(void)
 	NVIC_EnableIRQ((IRQn_Type)OV7740_VSYNC_ID);
 }
 
-void configure_twi(void)
+// Configuration of TWI (two wire interface).
+static void configure_twi(void)
 {
-
 	twi_options_t opt;
-
-	/* Init Vsync handler*/
-	init_vsync_interrupts();
-
-	/* Init PIO capture*/
-	pio_capture_init(OV_DATA_BUS_PIO, OV_DATA_BUS_ID);
-
-	/* Turn on ov7740 image sensor using power pin */
-	ov_power(true, OV_POWER_PIO, OV_POWER_MASK);
-
-	/* Init PCK0 to work at 24 Mhz */
-	/* 96/4=24 Mhz */
-	PMC->PMC_PCK[0] = (PMC_PCK_PRES_CLK_4 | PMC_PCK_CSS_PLLA_CLK);
-	PMC->PMC_SCER = PMC_SCER_PCK0;
-	while (!(PMC->PMC_SCSR & PMC_SCSR_PCK0)) {
-	}
 
 	/* Enable TWI peripheral */
 	pmc_enable_periph_clk(ID_BOARD_TWI);
@@ -79,8 +74,10 @@ void configure_twi(void)
 
 }
 
-void pio_capture_init(Pio *p_pio, uint32_t ul_id)
+// Configuration and initialization of parallel capture.
+static void pio_capture_init(Pio *p_pio, uint32_t ul_id)
 {
+
 	/* Enable periphral clock */
 	pmc_enable_periph_clk(ul_id);
 
@@ -105,7 +102,17 @@ void pio_capture_init(Pio *p_pio, uint32_t ul_id)
 #endif
 }
 
-uint8_t pio_capture_to_buffer(Pio *p_pio, uint8_t *uc_buf, uint32_t ul_size)
+// Configuration of OV2640 registers for desired operation.
+static void configure_camera(void)
+{
+    ov_configure(BOARD_TWI, JPEG_INIT);
+    ov_configure(BOARD_TWI, YUV422);
+    ov_configure(BOARD_TWI, JPEG);
+    ov_configure(BOARD_TWI, JPEG_320x240);
+}
+
+// Uses parallel capture and PDC to store image in buffer.
+static uint8_t pio_capture_to_buffer(Pio *p_pio, uint8_t *uc_buf, uint32_t ul_size)
 {
 	/* Check if the first PDC bank is free */
 	if ((p_pio->PIO_RCR == 0) && (p_pio->PIO_RNCR == 0)) {
@@ -122,13 +129,31 @@ uint8_t pio_capture_to_buffer(Pio *p_pio, uint8_t *uc_buf, uint32_t ul_size)
 	}
 }
 
+// Configuration of camera pins, camera clock (XCLK), and calling the configure twi function.
 void init_camera(void)
 {
-    // CONFIGURE CAMERA PINS HERE 
+	/* Configure twi interface*/
+	configure_twi(); 
 
-    // CONFIGURE XCLK HERE 
+	/* Init Vsync handler*/
+	init_vsync_interrupts();
 
-    configure_twi(); 
+	/* Init PIO capture*/
+	pio_capture_init(OV_DATA_BUS_PIO, OV_DATA_BUS_ID);
+
+	/* Turn on ov7740 image sensor using power pin */
+	ov_power(true, OV_POWER_PIO, OV_POWER_MASK);
+
+	/* Init PCK0 to work at 24 Mhz */
+	/* 96/4=24 Mhz */
+	PMC->PMC_PCK[0] = (PMC_PCK_PRES_CLK_4 | PMC_PCK_CSS_PLLA_CLK);
+	PMC->PMC_SCER = PMC_SCER_PCK0;
+	while (!(PMC->PMC_SCSR & PMC_SCSR_PCK0)) {
+		}
+
+    // CONFIGURE CAMERA PINS HERE ?? i think i did this already in this code, but unsure 
+
+    // CONFIGURE XCLK HERE ?? not sure how to do this 
 
 	/* ov7740 Initialization */
 	while (ov_init(BOARD_TWI) == 1) {
@@ -141,14 +166,8 @@ void init_camera(void)
 	delay_ms(3000);
 }
 
-void configure_camera(void)
-{
-    ov_configure(BOARD_TWI, JPEG_INIT);
-    ov_configure(BOARD_TWI, YUV422);
-    ov_configure(BOARD_TWI, JPEG);
-    ov_configure(BOARD_TWI, JPEG_320x240);
-}
-
+// Captures an image after a rising edge of VSYNC, and gets image
+// length. Returns 1 on success (i.e. a nonzero image length), 0 on error.
 uint8_t start_capture(void)
 {
 
@@ -205,7 +224,10 @@ uint8_t start_capture(void)
     return 0; 
 }
 
-uint8_t find_image_len(void)
+// Finds image length based on JPEG protocol. Returns 1 on success
+//(i.e. able to find end of image (EOI) and start of image (SOI) markers, with SOI preceding
+// EOI), 0 on error.
+static uint8_t find_image_len(void)
 {
     
 }
