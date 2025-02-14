@@ -18,6 +18,9 @@ uint16_t g_us_cap_rows = IMAGE_HEIGHT;
 /* Length of image */
 uint8_t g_uc_image_len = 0; 
 
+/* TWI clock frequency in Hz (400KHz) */
+#define TWI_CLK     (400000UL)
+
 void vsync_handler(uint32_t ul_id, uint32_t ul_mask)
 {
 	unused(ul_id);
@@ -41,8 +44,35 @@ void init_vsync_interrupts(void)
 
 void configure_twi(void)
 {
-    // unsure if correct 
-    NVIC_DisableIRQ(BOARD_TWI_IRQn);
+
+	twi_options_t opt;
+
+	/* Init Vsync handler*/
+	init_vsync_interrupts();
+
+	/* Init PIO capture*/
+	pio_capture_init(OV_DATA_BUS_PIO, OV_DATA_BUS_ID);
+
+	/* Turn on ov7740 image sensor using power pin */
+	ov_power(true, OV_POWER_PIO, OV_POWER_MASK);
+
+	/* Init PCK0 to work at 24 Mhz */
+	/* 96/4=24 Mhz */
+	PMC->PMC_PCK[0] = (PMC_PCK_PRES_CLK_4 | PMC_PCK_CSS_PLLA_CLK);
+	PMC->PMC_SCER = PMC_SCER_PCK0;
+	while (!(PMC->PMC_SCSR & PMC_SCSR_PCK0)) {
+	}
+
+	/* Enable TWI peripheral */
+	pmc_enable_periph_clk(ID_BOARD_TWI);
+
+	/* Init TWI peripheral */
+	opt.master_clk = sysclk_get_cpu_hz();
+	opt.speed      = TWI_CLK;
+	twi_master_init(BOARD_TWI, &opt);
+
+	/* Configure TWI interrupts */
+	NVIC_DisableIRQ(BOARD_TWI_IRQn);
 	NVIC_ClearPendingIRQ(BOARD_TWI_IRQn);
 	NVIC_SetPriority(BOARD_TWI_IRQn, 0);
 	NVIC_EnableIRQ(BOARD_TWI_IRQn);
@@ -99,6 +129,16 @@ void init_camera(void)
     // CONFIGURE XCLK HERE 
 
     configure_twi(); 
+
+	/* ov7740 Initialization */
+	while (ov_init(BOARD_TWI) == 1) {
+	}
+
+	/* ov7740 configuration */
+	configure_camera(); 
+
+	/* Wait 3 seconds to let the image sensor to adapt to environment */
+	delay_ms(3000);
 }
 
 void configure_camera(void)
