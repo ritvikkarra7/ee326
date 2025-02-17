@@ -29,6 +29,7 @@
  * Support and FAQ: visit <a href="https://www.microchip.com/support/">Microchip Support</a>
  */
 #include <asf.h>
+#include "wifi.h"
 
 int main (void)
 {
@@ -37,6 +38,18 @@ int main (void)
 	board_init();
 	sysclk_init();
 	ioport_init();
+	wdt_disable(WDT);
+	
+	configure_usart_wifi();
+	configure_wifi_comm_pin();
+	
+	usart_write_line(WIFI_USART, "set comm_gpio 21\r\n");
+	
+	ioport_set_pin_level(LED_PIN, 0);
 
-	/* Insert application code here, after the board has been initialized. */
+	while(1) {
+		usart_write_line(WIFI_USART, "test\r\n");
+		//ioport_toggle_pin_level(LED_PIN);
+		delay_ms(500);
+	}
 }
