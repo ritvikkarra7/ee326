@@ -29,4 +29,7 @@
 #define OV7740_DATA_BUS_PIO            OV_DATA_BUS_PIO
 #define OV7740_DATA_BUS_ID             OV_DATA_BUS_ID
 
+//#define LED_PIN				PIO_PA23_IDX
+
+
 #endif // CONF_BOARD_H

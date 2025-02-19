@@ -5,48 +5,10 @@
  *  Author: andyh
  */ 
 #include <asf.h>
-
+#include "conf_board.h"
 
 #ifndef WIFI_H_
 #define WIFI_H_
-
-/* Status block. */
-struct status_block_t {
-	/** Number of data blocks. */
-	uint32_t ul_total_block_number;
-	/** Number of SPI commands (including data blocks). */
-	uint32_t ul_total_command_number;
-	/** Command list. */
-	uint32_t ul_cmd_list[NB_STATUS_CMD];
-};
-
-/* SPI Status. */
-static struct status_block_t gs_spi_status;
-
-/* Pointer to transfer buffer. */
-static uint8_t *gs_puc_transfer_buffer;
-
-/* Transfer buffer index. */
-static uint32_t gs_ul_transfer_index;
-
-/* Transfer buffer length. */
-static uint32_t gs_ul_transfer_length;
-
-
-// Handler for incoming data from the WiFi. Should call process incoming byte wifi when a new byte arrives.
-void wifi_usart_handler(void);
-
-// Stores every incoming byte (in byte) from the ESP32 in a buffer.
-void process_incoming_byte_wifi(uint8_t in_byte);
-
-// Handler for “command complete” rising-edge interrupt from ESP32. When this is triggered, it is time to process
-// the response of the ESP32.
-void wifi_command_response_handler(uint32_t ul_id, uint32_t ul_mask);
-
-// Processes the response of the ESP32, which should be stored in
-// the buffer filled by process incoming byte wifi. This processing should be looking for certain
-// responses that the ESP32 should give, such as “SUCCESS” when “test” is sent to it.
-void process_data_wifi(void);
 
 // Handler for button to initiate
 // provisioning mode of the ESP32. Should set a flag indicating a request to initiate provisioning.
@@ -57,10 +19,7 @@ void wifi_provision_handler(uint32_t ul_id, uint32_t ul_mask);
 // ESP32 SPI controller requests data, this interrupt should send one byte of the image at a time.
 void wifi_spi_handler(void);
 
-// Configuration of USART port used to communicate with the ESP32.
 void configure_usart_wifi(void);
-
-// Configuration of “command complete” rising-edge interrupt.
 void configure_wifi_comm_pin(void);
 
 // Configuration of button interrupt to initiate provisioning mode.
@@ -96,37 +55,35 @@ MCU should sense this and then move on.
 */
 void write_image_to_web(void);
 
-/* Chip select. */
-#define SPI_CHIP_SEL 0
-#define SPI_CHIP_PCS spi_get_pcs(SPI_CHIP_SEL)
+/** USART0 pin RX */
+#define PIN_USART0_RXD	  {PIO_PA5A_RXD0, PIOA, ID_PIOA, PIO_PERIPH_A, PIO_PULLUP}
+#define PIN_USART0_RXD_IDX        (PIO_PA5_IDX)
+#define PIN_USART0_RXD_FLAGS      (PIO_PERIPH_A | PIO_PULLUP)
+/** USART0 pin TX */
+#define PIN_USART0_TXD    {PIO_PA6A_TXD0, PIOA, ID_PIOA, PIO_PERIPH_A, PIO_PULLUP}
+#define PIN_USART0_TXD_IDX        (PIO_PA6_IDX)
+#define PIN_USART0_TXD_FLAGS      (PIO_PERIPH_A | PIO_PULLUP)
 
-/* Clock polarity. */
-#define SPI_CLK_POLARITY 0
+/** Configure USART0 */
+#define WIFI_ID_USART             ID_USART0
+#define WIFI_USART                USART0
+#define WIFI_USART_BAUDRATE       115200
+#define wifi_usart_handler        USART0_Handler
+#define WIFI_USART_IRQn			  USART0_IRQn
 
-/* Clock phase. */
-#define SPI_CLK_PHASE 0
+/** All interrupt mask. */
+#define ALL_INTERRUPT_MASK  0xffffffff
 
-/** SPI base address for SPI slave mode, (on different board) */
-#define SPI_SLAVE_BASE       SPI
+#define WIFI_COMM_PIN_NUM			PIO_PA22
+#define WIFI_COMM_PIO				PIOA
+#define WIFI_COMM_ID				ID_PIOA
+#define WIFI_COMM_ATTR				PIO_IT_RISE_EDGE
 
-/* SPI slave states for this example. */
-#define SLAVE_STATE_IDLE           0
-#define SLAVE_STATE_TEST           1
-#define SLAVE_STATE_DATA           2
-#define SLAVE_STATE_STATUS_ENTRY   3
-#define SLAVE_STATE_STATUS         4
-#define SLAVE_STATE_END            5
-
-/* Number of commands logged in status. */
-#define NB_STATUS_CMD   20
-
-/* General return value. */
-#define RC_SYN       0x55AA55AA
-
-/* Current SPI return code. */
-static uint32_t gs_ul_spi_cmd = RC_SYN;
-
-/* Current SPI state. */
-static uint32_t gs_ul_spi_state = 0;
+#define MAX_INPUT_WIFI 1000
+volatile char input_line_wifi[MAX_INPUT_WIFI];
+volatile uint32_t received_byte_wifi;
+volatile bool new_rx_wifi;
+volatile unsigned int input_pos_wifi;
+volatile bool wifi_comm_success;
 
 #endif /* WIFI_H_ */
